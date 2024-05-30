@@ -140,6 +140,23 @@ def test_sapientml_works_with_pickled_model(testdata_df_light):
     )
 
 
+def test_sapientml_works_with_probability_prediction_for_multiclass_with_id(testdata_df_light):
+    cls_ = SapientML(
+        ["target_category_multi_nonnum"],
+        task_type="classification",
+        id_columns_for_prediction=["id"],
+        initial_timeout=60,
+    )
+    test_df = testdata_df_light.copy()
+    test_df["id"] = np.arange(test_df.shape[0])
+    cls_.fit(
+        test_df,
+    )
+    cls_.predict(
+        test_df,
+    )
+
+
 def test_misc_sapientml_with_hpo_works(testdata_df_light, caplog):
     testdata_df_light = testdata_df_light[["target_number", "explanatory_multi_category_nonnum"]]
     logging.disable(logging.NOTSET)
@@ -215,7 +232,7 @@ def test_sapientml_raises_error_if_all_candidates_failed_to_run(testdata_df_ligh
         time_split_num=4,
         time_split_index=0,
     )
-    with mock.patch("asyncio.create_subprocess_shell") as process:
+    with mock.patch("asyncio.create_subprocess_exec") as process:
         attrs = {
             "return_value.stdout.readline.return_value": (b""),
             "return_value.stderr.readline.return_value": (b""),
@@ -560,3 +577,35 @@ def test_sapientml_works_with_regression_split_stratification(testdata_df_light)
     )
 
     assert "stratify" not in cls_.generator._best_pipeline.test
+
+
+def test_sapientml_works_with_change_none_to_nan():
+    df = pd.DataFrame(
+        {
+            "A": list(range(1, 11)),
+            "B": [None if i % 2 == 0 else "B" for i in range(1, 11)],
+            # It also fails when the value np.nan is included.
+            # "B": [np.nan if i % 2 == 0 else "B" for i in range(1, 11)],
+            "y": ["y" if i % 2 == 0 else "n" for i in range(1, 11)],
+        }
+    )
+
+    sml = SapientML(
+        ["y"],
+        add_explanation=True,
+    )
+
+    sml.fit(df)
+
+
+def test_sapientml_works_with_symbol_column(testdata_df_light):
+    col_has_symbol = {"target_number_large_scale": "[target_number]{}:<\\+"}
+    testdata_df_light = testdata_df_light.rename(columns=col_has_symbol)
+
+    cls_ = SapientML(
+        target_columns=["[target_number]{}:<\\+", "target_number"],
+        add_explanation=True,
+    )
+    cls_.fit(
+        testdata_df_light,
+    )
